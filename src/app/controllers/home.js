@@ -1,9 +1,9 @@
 'use strict'
 import Devshare from 'devshare'
-import Jszip from 'jszip'
-import filesave from 'node-safe-filesaver'
+import AdmZip from 'adm-zip'
 import { each } from 'lodash'
 import Firepad from 'firepad'
+import fs from 'fs'
 /**
  * New project page
  */
@@ -21,7 +21,7 @@ export function zip (req, res) {
     .get()
     .then(directory => {
       // console.log('directory loaded:', directory)
-      let zip = new Jszip()
+      let zip = new AdmZip()
       let promiseArray = []
       let handleZip = fbChildren => {
         each(fbChildren, child => {
@@ -30,12 +30,12 @@ export function zip (req, res) {
             return handleZip(child)
           }
           console.log('child', child)
-					if (child.original && !child.history) return zip.file(child.meta.path, child.original)
+          if (child.original && !child.history) return zip.file(child.meta.path, child.original)
           let promise = new Promise(resolve =>
             Firepad.Headless(fileSystem.file(child.meta.path).firebaseRef()).getText(text => {
               console.log('file text', text)
-							zip.file(child.meta.path, text || '')
-							resolve(text || '')
+              zip.addFile(child.meta.path, new Buffer(text))
+              resolve(text || '')
             })
           )
           promiseArray.push(promise)
@@ -43,11 +43,10 @@ export function zip (req, res) {
       }
       handleZip(directory)
       return Promise.all(promiseArray).then(() => {
-        let content = zip.generate({ type: 'blob' })
-				console.log('promises fulfilled', `${req.params.projectname}-devShare-export.zip`)
-        let zipFile = filesave.saveAs(content, `${req.params.projectname}-devShare-export.zip`)
-        console.log('zip file created', zipFile)
-        res.send(zipFile)
+        zip.writeZip('./zips/test.zip')
+        console.log('promises fulfilled', `${req.params.projectName}-devShare-export.zip`)
+				// res.json({ message: 'zip created' })
+				res.download('./zips/test.zip')
       })
     })
 }
